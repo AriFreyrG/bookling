@@ -26,5 +26,9 @@ struct ContentView: View {
                     }
                 }
         }
+        .onShake {
+            library.playRandomBook()
+            showPlayer = true
+        }
     }
 }

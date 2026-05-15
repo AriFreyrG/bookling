@@ -71,4 +71,24 @@ final class LibraryViewModel: ObservableObject {
     func loadCoverImage(for book: Audiobook) -> UIImage? {
         libraryService.loadCoverImage(for: book)
     }
+
+    func playRandomBook() {
+        guard !books.isEmpty else { return }
+        let randomIndex = Int.random(in: 0..<books.count)
+        var book = books[randomIndex]
+
+        guard !book.chapters.isEmpty else { return }
+        let randomChapter = Int.random(in: 0..<book.chapters.count)
+        let chapterDuration = max(book.chapters[randomChapter].duration, 1)
+        let randomTime = Double.random(in: 0..<chapterDuration)
+
+        book.currentChapterIndex = randomChapter
+        book.currentTimeInChapter = randomTime
+        book.lastPlayedDate = .now
+
+        currentBook = book
+        audioManager.cancelSleepTimer()
+        audioManager.load(book: book)
+        audioManager.play()
+    }
 }

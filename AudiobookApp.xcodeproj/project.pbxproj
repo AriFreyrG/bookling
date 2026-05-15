@@ -20,6 +20,7 @@
 		BF000000000000000011 /* ChapterListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FR000000000000000011 /* ChapterListView.swift */; };
 		BF000000000000000012 /* SleepTimerPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = FR000000000000000012 /* SleepTimerPicker.swift */; };
 		BF000000000000000013 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = FR000000000000000014 /* Assets.xcassets */; };
+		BF000000000000000020 /* ShakeGesture.swift in Sources */ = {isa = PBXBuildFile; fileRef = FR000000000000000016 /* ShakeGesture.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -38,6 +39,7 @@
 		FR000000000000000013 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		FR000000000000000014 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		FR000000000000000015 /* Audiobook App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Audiobook App.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		FR000000000000000016 /* ShakeGesture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShakeGesture.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -67,11 +69,20 @@
 				FR000000000000000001 /* AudiobookApp.swift */,
 				FR000000000000000002 /* ContentView.swift */,
 				GR000000000000000003 /* Models */,
+				GR000000000000000010 /* Helpers */,
 				GR000000000000000004 /* Services */,
 				GR000000000000000005 /* ViewModels */,
 				GR000000000000000006 /* Views */,
 			);
 			path = Sources;
+			sourceTree = "<group>";
+		};
+		GR000000000000000010 /* Helpers */ = {
+			isa = PBXGroup;
+			children = (
+				FR000000000000000016 /* ShakeGesture.swift */,
+			);
+			path = Helpers;
 			sourceTree = "<group>";
 		};
 		GR000000000000000003 /* Models */ = {
@@ -217,6 +228,7 @@
 				BF000000000000000010 /* PlayerView.swift in Sources */,
 				BF000000000000000011 /* ChapterListView.swift in Sources */,
 				BF000000000000000012 /* SleepTimerPicker.swift in Sources */,
+				BF000000000000000020 /* ShakeGesture.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
