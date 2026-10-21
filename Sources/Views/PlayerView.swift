@@ -236,19 +236,19 @@ struct PlayerView: View {
 
     private var sleepTimerButton: some View {
         Button {
-            if library.audioManager.sleepTimerRemaining != nil {
+            if library.audioManager.isSleepTimerActive {
                 library.audioManager.cancelSleepTimer()
             } else {
                 showSleepPicker = true
             }
         } label: {
             VStack(spacing: 2) {
-                Image(systemName: library.audioManager.sleepTimerRemaining != nil ? "moon.fill" : "moon")
+                Image(systemName: library.audioManager.isSleepTimerActive ? "moon.fill" : "moon")
                     .font(.title3)
                 Text("Sleep")
                     .font(.caption2)
             }
-            .foregroundStyle(library.audioManager.sleepTimerRemaining != nil ? .accentColor : .primary)
+            .foregroundStyle(library.audioManager.isSleepTimerActive ? Color.accentColor : .primary)
         }
     }
 

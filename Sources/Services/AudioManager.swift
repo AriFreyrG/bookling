@@ -17,6 +17,7 @@ final class AudioManager: NSObject, ObservableObject {
     @Published var playbackSpeed: Float = 1.0
 
     @Published var sleepTimerRemaining: TimeInterval?
+    @Published var sleepAtEndOfChapter = false
     private var sleepTimerWork: DispatchWorkItem?
     private var sleepTimerStart: Date?
     private var sleepTimerDuration: TimeInterval?
@@ -25,6 +26,10 @@ final class AudioManager: NSObject, ObservableObject {
     var currentChapter: Chapter? {
         guard currentChapterIndex < chapters.count else { return nil }
         return chapters[currentChapterIndex]
+    }
+
+    var isSleepTimerActive: Bool {
+        sleepTimerRemaining != nil || sleepAtEndOfChapter
     }
 
     var chapterProgress: Double {
@@ -45,9 +50,10 @@ final class AudioManager: NSObject, ObservableObject {
         setupAudioSession()
     }
 
+    // The session is only activated on play, so launching the app does not
+    // interrupt audio from other apps.
     private func setupAudioSession() {
         try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .spokenAudio)
-        try? AVAudioSession.sharedInstance().setActive(true)
     }
 
     func load(book: Audiobook) {
@@ -62,6 +68,10 @@ final class AudioManager: NSObject, ObservableObject {
         guard index < chapters.count else { return }
         let chapter = chapters[index]
         currentChapterIndex = index
+        // Reflect the target position right away, so progress saved before the
+        // new item is ready does not pick up the previous chapter's time.
+        currentTime = time
+        duration = chapter.duration
 
         let tempBook = Audiobook(title: "", chapters: chapters, folderPath: currentFolderPath)
         guard let url = libraryService.audioFileURL(for: tempBook, chapter: chapter) else {
@@ -137,6 +147,7 @@ final class AudioManager: NSObject, ObservableObject {
     }
 
     func play() {
+        try? AVAudioSession.sharedInstance().setActive(true)
         pendingPlay = true
         guard let item = playerItem, item.status == .readyToPlay else { return }
         pendingPlay = false
@@ -197,8 +208,14 @@ final class AudioManager: NSObject, ObservableObject {
     private func advanceToNextChapter() {
         if currentChapterIndex + 1 < chapters.count {
             loadChapter(at: currentChapterIndex + 1)
-            play()
+            if sleepAtEndOfChapter {
+                sleepAtEndOfChapter = false
+                pause()
+            } else {
+                play()
+            }
         } else {
+            sleepAtEndOfChapter = false
             isPlaying = false
             pause()
         }
@@ -230,14 +247,13 @@ final class AudioManager: NSObject, ObservableObject {
 
     func startSleepTimerEndOfChapter() {
         cancelSleepTimer()
-        sleepTimerRemaining = nil
-        sleepTimerDuration = nil
-        sleepTimerStart = nil
+        sleepAtEndOfChapter = true
     }
 
     func cancelSleepTimer() {
         sleepTimerWork?.cancel()
         sleepTimerWork = nil
+        sleepAtEndOfChapter = false
         sleepTimerRemaining = nil
         sleepTimerDuration = nil
         sleepTimerStart = nil
@@ -253,10 +269,5 @@ final class AudioManager: NSObject, ObservableObject {
         } else {
             sleepTimerRemaining = remaining
         }
-    }
-
-    deinit {
-        removeObservers()
-        cancelSleepTimer()
     }
 }

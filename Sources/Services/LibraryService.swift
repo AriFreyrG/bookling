@@ -1,9 +1,13 @@
 import Foundation
 import AVFoundation
+import CryptoKit
 import UIKit
 
 final class LibraryService {
     static let shared = LibraryService()
+
+    // AVFoundation cannot decode WMA, so it is deliberately not listed.
+    private static let supportedExtensions: Set<String> = ["mp3", "m4a", "m4b", "aac", "wav", "aiff"]
 
     private let fileManager = FileManager.default
 
@@ -37,7 +41,8 @@ final class LibraryService {
         var books: [Audiobook] = []
         guard let contents = try? fileManager.contentsOfDirectory(
             at: audiobooksDirectory,
-            includingPropertiesForKeys: [.isDirectoryKey]
+            includingPropertiesForKeys: [.isDirectoryKey],
+            options: [.skipsHiddenFiles]
         ) else { return [] }
 
         for url in contents {
@@ -55,20 +60,24 @@ final class LibraryService {
             }
         }
 
-        let sorted = books.sorted { $0.lastPlayedDate > $1.lastPlayedDate }
-        for var book in sorted {
-            if let saved = metadata[book.id] {
-                book.currentChapterIndex = saved.currentChapterIndex
-                book.currentTimeInChapter = saved.currentTimeInChapter
-                book.playbackSpeed = saved.playbackSpeed
-                book.lastPlayedDate = saved.lastPlayedDate
-            }
+        for i in books.indices {
+            guard let saved = metadata[books[i].id] else { continue }
+            books[i].currentChapterIndex = min(saved.currentChapterIndex, max(books[i].chapters.count - 1, 0))
+            books[i].currentTimeInChapter = saved.currentTimeInChapter
+            books[i].playbackSpeed = saved.playbackSpeed
+            books[i].lastPlayedDate = saved.lastPlayedDate
         }
-        return sorted
+        return books.sorted { $0.lastPlayedDate > $1.lastPlayedDate }
+    }
+
+    /// Derives a stable ID from the book's path inside the Audiobooks folder,
+    /// so saved progress survives rescans and app relaunches.
+    private func stableID(for relativePath: String) -> UUID {
+        let bytes = Array(SHA256.hash(data: Data(relativePath.utf8)).prefix(16))
+        return bytes.withUnsafeBufferPointer { NSUUID(uuidBytes: $0.baseAddress!) as UUID }
     }
 
     private func scanFolderBook(at url: URL) -> Audiobook? {
-        let supportedExtensions = ["mp3", "m4a", "m4b", "aac", "wav", "aiff", "wma"]
         guard let files = try? fileManager.contentsOfDirectory(
             at: url,
             includingPropertiesForKeys: [.fileSizeKey],
@@ -76,7 +85,7 @@ final class LibraryService {
         ) else { return nil }
 
         let audioFiles = files
-            .filter { supportedExtensions.contains($0.pathExtension.lowercased()) }
+            .filter { Self.supportedExtensions.contains($0.pathExtension.lowercased()) }
             .sorted { $0.lastPathComponent < $1.lastPathComponent }
 
         guard !audioFiles.isEmpty else { return nil }
@@ -106,15 +115,8 @@ final class LibraryService {
             author = authorText.trimmingCharacters(in: .whitespacesAndNewlines)
         }
 
-        let id: UUID
-        if let existing = metadata.first(where: { $0.key.uuidString == title }) {
-            id = existing.key
-        } else {
-            id = UUID()
-        }
-
         return Audiobook(
-            id: id,
+            id: stableID(for: url.lastPathComponent),
             title: title,
             author: author,
             chapters: chapters,
@@ -125,41 +127,25 @@ final class LibraryService {
     }
 
     private func scanSingleFileBook(at url: URL) -> Audiobook? {
-        let supportedExtensions = ["mp3", "m4a", "m4b", "aac", "wav", "aiff"]
-        guard supportedExtensions.contains(url.pathExtension.lowercased()) else { return nil }
+        guard Self.supportedExtensions.contains(url.pathExtension.lowercased()) else { return nil }
 
         let asset = AVAsset(url: url)
         let duration = asset.duration.seconds.isNaN ? 0 : asset.duration.seconds
         let title = url.deletingPathExtension().lastPathComponent
 
-        let chapterMetadata = loadChapters(from: asset) ?? [
-            Chapter(title: title, filename: url.lastPathComponent, duration: duration, index: 0)
+        // Embedded chapters (e.g. in .m4b files) are not supported yet: the player
+        // can only play whole files, so a single-file book is one chapter.
+        let chapters = [
+            Chapter(title: title, filename: "", duration: duration, index: 0)
         ]
 
-        let id: UUID
-        if let existing = metadata.first(where: { $0.key.uuidString == title }) {
-            id = existing.key
-        } else {
-            id = UUID()
-        }
-
         return Audiobook(
-            id: id,
+            id: stableID(for: url.lastPathComponent),
             title: title,
-            chapters: chapterMetadata,
+            chapters: chapters,
             folderPath: url.lastPathComponent,
             dateAdded: (try? url.resourceValues(forKeys: [.creationDateKey]).creationDate) ?? .now
         )
-    }
-
-    private func loadChapters(from asset: AVAsset) -> [Chapter]? {
-        let chapters = asset.chapters
-        guard !chapters.isEmpty else { return nil }
-        return chapters.enumerated().map { (i, chapter) in
-            let title = chapter.title ?? "Chapter \(i + 1)"
-            let duration = chapter.timeRange.duration.seconds
-            return Chapter(title: title, filename: "", duration: duration, index: i)
-        }
     }
 
     private func findCover(in directory: URL) -> URL? {
@@ -191,8 +177,10 @@ final class LibraryService {
                 return url
             }
         }
+        // Single-file books store the file itself in folderPath.
         let url = audiobooksDirectory.appendingPathComponent(book.folderPath)
-        if fileManager.fileExists(atPath: url.path) {
+        var isDir: ObjCBool = false
+        if fileManager.fileExists(atPath: url.path, isDirectory: &isDir), !isDir.boolValue {
             return url
         }
         return nil

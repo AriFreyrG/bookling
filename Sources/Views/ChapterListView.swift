@@ -30,7 +30,7 @@ struct ChapterListView: View {
                             if library.audioManager.currentChapterIndex == chapter.index {
                                 Image(systemName: "play.fill")
                                     .font(.caption)
-                                    .foregroundStyle(.accent)
+                                    .foregroundStyle(Color.accentColor)
                             }
 
                             Text(book.formattedDuration(chapter.duration))
