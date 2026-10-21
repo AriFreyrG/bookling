@@ -54,6 +54,10 @@ final class LibraryViewModel: ObservableObject {
     }
 
     func selectBook(_ book: Audiobook) {
+        // Keep the position reached in the book being switched away from.
+        if currentBook != nil, currentBook?.id != book.id {
+            saveProgress()
+        }
         var updated = book
         if let savedBook = books.first(where: { $0.id == book.id }) {
             updated = savedBook

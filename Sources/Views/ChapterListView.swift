@@ -3,6 +3,7 @@ import SwiftUI
 struct ChapterListView: View {
     let book: Audiobook
     @EnvironmentObject var library: LibraryViewModel
+    @ObservedObject private var audioManager = AudioManager.shared
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -13,6 +14,7 @@ struct ChapterListView: View {
                         var target = book
                         target.currentChapterIndex = chapter.index
                         target.currentTimeInChapter = 0
+                        target.playbackSpeed = Double(audioManager.playbackSpeed)
                         library.audioManager.load(book: target)
                         library.audioManager.play()
                         dismiss()

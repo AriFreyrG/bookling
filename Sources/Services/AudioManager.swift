@@ -22,6 +22,7 @@ final class AudioManager: NSObject, ObservableObject {
     private var sleepTimerStart: Date?
     private var sleepTimerDuration: TimeInterval?
     private var pendingPlay = false
+    private var resumeAfterInterruption = false
 
     var currentChapter: Chapter? {
         guard currentChapterIndex < chapters.count else { return nil }
@@ -48,6 +49,35 @@ final class AudioManager: NSObject, ObservableObject {
     private override init() {
         super.init()
         setupAudioSession()
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleInterruption(_:)),
+            name: AVAudioSession.interruptionNotification,
+            object: AVAudioSession.sharedInstance()
+        )
+    }
+
+    /// Resumes after a call, Siri or another app's audio ends, when iOS says to.
+    @objc private func handleInterruption(_ notification: Notification) {
+        guard let info = notification.userInfo,
+              let typeValue = info[AVAudioSessionInterruptionTypeKey] as? UInt,
+              let type = AVAudioSession.InterruptionType(rawValue: typeValue)
+        else { return }
+        let optionsValue = info[AVAudioSessionInterruptionOptionKey] as? UInt ?? 0
+        Task { @MainActor in
+            switch type {
+            case .began:
+                self.resumeAfterInterruption = self.isPlaying
+            case .ended:
+                if self.resumeAfterInterruption,
+                   AVAudioSession.InterruptionOptions(rawValue: optionsValue).contains(.shouldResume) {
+                    self.play()
+                }
+                self.resumeAfterInterruption = false
+            @unknown default:
+                break
+            }
+        }
     }
 
     // The session is only activated on play, so launching the app does not
