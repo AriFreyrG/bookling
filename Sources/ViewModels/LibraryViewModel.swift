@@ -11,6 +11,19 @@ final class LibraryViewModel: ObservableObject {
 
     let audioManager = AudioManager.shared
     private let libraryService = LibraryService.shared
+    private var cancellables = Set<AnyCancellable>()
+
+    init() {
+        // Save periodically while playing, so progress survives the app being
+        // terminated in the background.
+        audioManager.$currentTime
+            .throttle(for: .seconds(15), scheduler: RunLoop.main, latest: true)
+            .sink { [weak self] _ in
+                guard let self, self.audioManager.isPlaying else { return }
+                self.saveProgress()
+            }
+            .store(in: &cancellables)
+    }
 
     enum SortOrder: String, CaseIterable {
         case lastPlayed = "Recent"
@@ -41,6 +54,10 @@ final class LibraryViewModel: ObservableObject {
     }
 
     func selectBook(_ book: Audiobook) {
+        // Keep the position reached in the book being switched away from.
+        if currentBook != nil, currentBook?.id != book.id {
+            saveProgress()
+        }
         var updated = book
         if let savedBook = books.first(where: { $0.id == book.id }) {
             updated = savedBook

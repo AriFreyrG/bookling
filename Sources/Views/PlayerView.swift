@@ -3,6 +3,8 @@ import SwiftUI
 struct PlayerView: View {
     let book: Audiobook
     @EnvironmentObject var library: LibraryViewModel
+    // Observed directly so the time, slider and play state update as playback runs.
+    @ObservedObject private var audioManager = AudioManager.shared
     @Environment(\.dismiss) private var dismiss
     @State private var showChapters = false
     @State private var showSleepPicker = false
@@ -28,7 +30,7 @@ struct PlayerView: View {
         .sheet(isPresented: $showSleepPicker) {
             SleepTimerPicker()
                 .environmentObject(library)
-                .presentationDetents([.height(340)])
+                .presentationDetents([.height(420)])
         }
     }
 
@@ -134,7 +136,7 @@ struct PlayerView: View {
 
                 Spacer()
 
-                Text(book.formattedRemaining(from: library.audioManager.currentTime))
+                Text(book.formattedRemaining(from: bookElapsed))
                     .font(.caption.monospacedDigit())
                     .foregroundStyle(.secondary)
             }
@@ -236,19 +238,19 @@ struct PlayerView: View {
 
     private var sleepTimerButton: some View {
         Button {
-            if library.audioManager.sleepTimerRemaining != nil {
+            if library.audioManager.isSleepTimerActive {
                 library.audioManager.cancelSleepTimer()
             } else {
                 showSleepPicker = true
             }
         } label: {
             VStack(spacing: 2) {
-                Image(systemName: library.audioManager.sleepTimerRemaining != nil ? "moon.fill" : "moon")
+                Image(systemName: library.audioManager.isSleepTimerActive ? "moon.fill" : "moon")
                     .font(.title3)
                 Text("Sleep")
                     .font(.caption2)
             }
-            .foregroundStyle(library.audioManager.sleepTimerRemaining != nil ? .accentColor : .primary)
+            .foregroundStyle(library.audioManager.isSleepTimerActive ? Color.accentColor : .primary)
         }
     }
 
@@ -264,6 +266,13 @@ struct PlayerView: View {
             }
             .foregroundStyle(.primary)
         }
+    }
+
+    /// Time elapsed in the whole book, since the slider and currentTime are per chapter.
+    private var bookElapsed: TimeInterval {
+        let index = min(audioManager.currentChapterIndex, book.chapters.count)
+        let completed = book.chapters[..<index].reduce(0) { $0 + $1.duration }
+        return completed + audioManager.currentTime
     }
 
     private func skipForward() {
